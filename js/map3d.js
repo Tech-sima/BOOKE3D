@@ -8,7 +8,7 @@
 	let isDragging = false;
 	const lastPos = { x: 0, y: 0 };
 	// Статичный зум (чем больше, тем ближе). Пользователь менять не может
-	const STATIC_ZOOM = 1.5;
+	const STATIC_ZOOM = 1.2;
 
 	init();
 	loadCity();
@@ -75,68 +75,63 @@
 		const size = bounds.getSize(new THREE.Vector3());
 		const aspect = container.clientWidth / container.clientHeight;
 		
-		// Масштабируем модель для заполнения всего экрана без обрезки
-		// Используем размеры модели по X и Z для изометрической проекции
-		const modelWidth = size.x;
-		const modelHeight = size.z;
+		// Определяем, мобильное ли устройство
+		const isMobile = window.innerWidth <= 768 || window.innerHeight <= 600;
 		
-		// Определяем, какой размер больше - ширина или высота модели
-		const modelAspect = modelWidth / modelHeight;
-		
-		let frustumWidth, frustumHeight;
-		
-		if (modelAspect > aspect) {
-			// Модель шире экрана - масштабируем по высоте экрана
-			frustumHeight = modelHeight / STATIC_ZOOM;
-			frustumWidth = frustumHeight * aspect;
+		if (isMobile) {
+			// Для мобильных - просто растягиваем на весь экран
+			const frustumHeight = 20; // фиксированная высота для мобильных
+			const frustumWidth = frustumHeight * aspect;
+			
+			camera.top = frustumHeight/2;
+			camera.bottom = -frustumHeight/2;
+			camera.left = -frustumWidth/2;
+			camera.right = frustumWidth/2;
 		} else {
-			// Модель выше экрана - масштабируем по ширине экрана
-			frustumWidth = modelWidth / STATIC_ZOOM;
-			frustumHeight = frustumWidth / aspect;
+			// Для десктопа - обычная логика
+			const modelWidth = size.x;
+			const modelHeight = size.z;
+			const modelAspect = modelWidth / modelHeight;
+			
+			let frustumWidth, frustumHeight;
+			
+			if (modelAspect > aspect) {
+				frustumHeight = modelHeight / STATIC_ZOOM;
+				frustumWidth = frustumHeight * aspect;
+			} else {
+				frustumWidth = modelWidth / STATIC_ZOOM;
+				frustumHeight = frustumWidth / aspect;
+			}
+			
+			camera.top = frustumHeight/2;
+			camera.bottom = -frustumHeight/2;
+			camera.left = -frustumWidth/2;
+			camera.right = frustumWidth/2;
 		}
 		
-		// Увеличиваем фрустум для полного заполнения экрана
-		const scaleFactor = 1.2; // увеличиваем на 20% для гарантированного заполнения
-		frustumWidth *= scaleFactor;
-		frustumHeight *= scaleFactor;
-		
-		camera.top = frustumHeight/2;
-		camera.bottom = -frustumHeight/2;
-		camera.left = -frustumWidth/2;
-		camera.right = frustumWidth/2;
 		camera.updateProjectionMatrix();
 	}
 
 	function onResize(){
 		const aspect = container.clientWidth / container.clientHeight;
-		const currentHeight = camera.top - camera.bottom;
-		const currentWidth = camera.right - camera.left;
+		const isMobile = window.innerWidth <= 768 || window.innerHeight <= 600;
 		
-		// Пересчитываем фрустум с учетом нового соотношения сторон без обрезки
-		if (currentWidth / currentHeight > aspect) {
-			// Экран стал уже - масштабируем по высоте
-			const newHeight = currentHeight;
-			const newWidth = newHeight * aspect;
-			camera.top = newHeight / 2;
-			camera.bottom = -newHeight / 2;
-			camera.left = -newWidth / 2;
-			camera.right = newWidth / 2;
+		if (isMobile) {
+			// Для мобильных - просто растягиваем на весь экран
+			const frustumHeight = 20;
+			const frustumWidth = frustumHeight * aspect;
+			
+			camera.top = frustumHeight/2;
+			camera.bottom = -frustumHeight/2;
+			camera.left = -frustumWidth/2;
+			camera.right = frustumWidth/2;
 		} else {
-			// Экран стал шире - масштабируем по ширине
-			const newWidth = currentWidth;
-			const newHeight = newWidth / aspect;
+			// Для десктопа - пересчитываем пропорционально
+			const currentHeight = camera.top - camera.bottom;
+			const newWidth = currentHeight * aspect;
 			camera.left = -newWidth / 2;
 			camera.right = newWidth / 2;
-			camera.top = newHeight / 2;
-			camera.bottom = -newHeight / 2;
 		}
-		
-		// Применяем масштабирующий коэффициент для полного заполнения
-		const scaleFactor = 1.2;
-		camera.top *= scaleFactor;
-		camera.bottom *= scaleFactor;
-		camera.left *= scaleFactor;
-		camera.right *= scaleFactor;
 		
 		camera.updateProjectionMatrix();
 		renderer.setSize(container.clientWidth, container.clientHeight);
