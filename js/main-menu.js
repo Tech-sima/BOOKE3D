@@ -445,6 +445,12 @@
         const RING_DURATIONS_MS = { library: 1000, factory: 3000, storage: 3000, print: 2000 };
         const RING_COLORS = { library: '#27ae60', factory: '#2196f3', storage: '#ff9800', print: '#9c27b0' };
         
+        // Зоны зданий временно скрыты, индикаторы не показываем
+        if (buildingZones.length === 0) {
+            console.log('Зоны зданий скрыты, индикаторы не отображаются');
+            return;
+        }
+        
         buildingZones.forEach(zone => {
             const buildingType = zone.dataset.building;
             const building = buildingsData[buildingType];

@@ -8,7 +8,7 @@
 	let isDragging = false;
 	const lastPos = { x: 0, y: 0 };
 	// Статичный зум (чем больше, тем ближе). Пользователь менять не может
-	const STATIC_ZOOM = 2.0;
+	const STATIC_ZOOM = 1.5;
 
 	init();
 	loadCity();
@@ -75,10 +75,10 @@
 		const size = bounds.getSize(new THREE.Vector3());
 		const aspect = container.clientWidth / container.clientHeight;
 		
-		// Для изометрической карты обрезаем края, чтобы заполнить весь экран
-		// Используем размеры модели по X и Z для определения нужного фрустума
+		// Масштабируем модель для заполнения всего экрана без обрезки
+		// Используем размеры модели по X и Z для изометрической проекции
 		const modelWidth = size.x;
-		const modelHeight = size.z; // для изометрической проекции используем Z как высоту
+		const modelHeight = size.z;
 		
 		// Определяем, какой размер больше - ширина или высота модели
 		const modelAspect = modelWidth / modelHeight;
@@ -86,14 +86,19 @@
 		let frustumWidth, frustumHeight;
 		
 		if (modelAspect > aspect) {
-			// Модель шире экрана - обрезаем по бокам
+			// Модель шире экрана - масштабируем по высоте экрана
 			frustumHeight = modelHeight / STATIC_ZOOM;
 			frustumWidth = frustumHeight * aspect;
 		} else {
-			// Модель выше экрана - обрезаем сверху и снизу
+			// Модель выше экрана - масштабируем по ширине экрана
 			frustumWidth = modelWidth / STATIC_ZOOM;
 			frustumHeight = frustumWidth / aspect;
 		}
+		
+		// Увеличиваем фрустум для полного заполнения экрана
+		const scaleFactor = 1.2; // увеличиваем на 20% для гарантированного заполнения
+		frustumWidth *= scaleFactor;
+		frustumHeight *= scaleFactor;
 		
 		camera.top = frustumHeight/2;
 		camera.bottom = -frustumHeight/2;
@@ -107,9 +112,9 @@
 		const currentHeight = camera.top - camera.bottom;
 		const currentWidth = camera.right - camera.left;
 		
-		// Пересчитываем фрустум с учетом нового соотношения сторон
+		// Пересчитываем фрустум с учетом нового соотношения сторон без обрезки
 		if (currentWidth / currentHeight > aspect) {
-			// Экран стал уже - обрезаем по бокам
+			// Экран стал уже - масштабируем по высоте
 			const newHeight = currentHeight;
 			const newWidth = newHeight * aspect;
 			camera.top = newHeight / 2;
@@ -117,7 +122,7 @@
 			camera.left = -newWidth / 2;
 			camera.right = newWidth / 2;
 		} else {
-			// Экран стал шире - обрезаем сверху и снизу
+			// Экран стал шире - масштабируем по ширине
 			const newWidth = currentWidth;
 			const newHeight = newWidth / aspect;
 			camera.left = -newWidth / 2;
@@ -125,6 +130,13 @@
 			camera.top = newHeight / 2;
 			camera.bottom = -newHeight / 2;
 		}
+		
+		// Применяем масштабирующий коэффициент для полного заполнения
+		const scaleFactor = 1.2;
+		camera.top *= scaleFactor;
+		camera.bottom *= scaleFactor;
+		camera.left *= scaleFactor;
+		camera.right *= scaleFactor;
 		
 		camera.updateProjectionMatrix();
 		renderer.setSize(container.clientWidth, container.clientHeight);
