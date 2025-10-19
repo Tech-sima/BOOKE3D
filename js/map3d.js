@@ -8,7 +8,7 @@
 	let isDragging = false;
 	const lastPos = { x: 0, y: 0 };
 	// Статичный зум (чем больше, тем ближе). Пользователь менять не может
-	const STATIC_ZOOM = 1.2;
+	const STATIC_ZOOM = 2.0;
 
 	init();
 	loadCity();
@@ -20,7 +20,7 @@
 
 		const aspect = container.clientWidth / container.clientHeight;
 		camera = new THREE.OrthographicCamera(-10*aspect, 10*aspect, 10, -10, 0.1, 1000);
-		setIsometricCamera(3.5);
+		setFrontCamera(3.5);
 
 		renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 		renderer.setClearColor(0x000000, 0); // Прозрачный фон
@@ -38,6 +38,15 @@
 		bindGestures();
 	}
 
+	function setFrontCamera(distance){
+		// Камера над городом - смотрит сверху вниз под углом сбоку
+		const x = -distance * 0.3; // смещение влево по X
+		const y = distance; // над городом по Y
+		const z = -distance * 0.8; // опускаем камеру еще ниже по Z
+		camera.position.set(x,y,z);
+		camera.lookAt(0,0,0);
+	}
+	
 	function setIsometricCamera(distance){
 		// Повернем камеру на противоположную сторону (45° + 180°)
 		const angle = Math.PI/4 + Math.PI; // 225°
@@ -58,12 +67,12 @@
 			root.traverse((obj)=>{
 				if(obj.isMesh){ obj.receiveShadow = true; }
 			});
-			// Центруем модель и поднимаем, чтобы заполнить весь экран
+			// Центруем модель для фронтального вида
 			const box = new THREE.Box3().setFromObject(root);
 			const center = box.getCenter(new THREE.Vector3());
 			const size = box.getSize(new THREE.Vector3());
 			root.position.sub(center);
-			root.position.y += size.y * 0.2; // небольшой подъем для лучшего позиционирования
+			// Для фронтального вида не поднимаем модель, оставляем по центру
 			scene.add(root);
 			// Пересчитываем границы после сдвига и подгоняем фрустум
 			const adjustedBox = new THREE.Box3().setFromObject(root);
@@ -75,62 +84,55 @@
 		const size = bounds.getSize(new THREE.Vector3());
 		const aspect = container.clientWidth / container.clientHeight;
 		
-		// Определяем, мобильное ли устройство
-		const isMobile = window.innerWidth <= 768 || window.innerHeight <= 600;
+		// Для вида сверху обрезаем края, чтобы заполнить весь экран
+		// Используем размеры модели по X и Z для определения нужного фрустума
+		const modelWidth = size.x;
+		const modelHeight = size.z; // для вида сверху используем Z как высоту
 		
-		if (isMobile) {
-			// Для мобильных - просто растягиваем на весь экран
-			const frustumHeight = 20; // фиксированная высота для мобильных
-			const frustumWidth = frustumHeight * aspect;
-			
-			camera.top = frustumHeight/2;
-			camera.bottom = -frustumHeight/2;
-			camera.left = -frustumWidth/2;
-			camera.right = frustumWidth/2;
+		// Определяем, какой размер больше - ширина или высота модели
+		const modelAspect = modelWidth / modelHeight;
+		
+		let frustumWidth, frustumHeight;
+		
+		if (modelAspect > aspect) {
+			// Модель шире экрана - обрезаем по бокам
+			frustumHeight = modelHeight / STATIC_ZOOM;
+			frustumWidth = frustumHeight * aspect;
 		} else {
-			// Для десктопа - обычная логика
-			const modelWidth = size.x;
-			const modelHeight = size.z;
-			const modelAspect = modelWidth / modelHeight;
-			
-			let frustumWidth, frustumHeight;
-			
-			if (modelAspect > aspect) {
-				frustumHeight = modelHeight / STATIC_ZOOM;
-				frustumWidth = frustumHeight * aspect;
-			} else {
-				frustumWidth = modelWidth / STATIC_ZOOM;
-				frustumHeight = frustumWidth / aspect;
-			}
-			
-			camera.top = frustumHeight/2;
-			camera.bottom = -frustumHeight/2;
-			camera.left = -frustumWidth/2;
-			camera.right = frustumWidth/2;
+			// Модель выше экрана - обрезаем сверху и снизу
+			frustumWidth = modelWidth / STATIC_ZOOM;
+			frustumHeight = frustumWidth / aspect;
 		}
 		
+		camera.top = frustumHeight/2;
+		camera.bottom = -frustumHeight/2;
+		camera.left = -frustumWidth/2;
+		camera.right = frustumWidth/2;
 		camera.updateProjectionMatrix();
 	}
 
 	function onResize(){
 		const aspect = container.clientWidth / container.clientHeight;
-		const isMobile = window.innerWidth <= 768 || window.innerHeight <= 600;
+		const currentHeight = camera.top - camera.bottom;
+		const currentWidth = camera.right - camera.left;
 		
-		if (isMobile) {
-			// Для мобильных - просто растягиваем на весь экран
-			const frustumHeight = 20;
-			const frustumWidth = frustumHeight * aspect;
-			
-			camera.top = frustumHeight/2;
-			camera.bottom = -frustumHeight/2;
-			camera.left = -frustumWidth/2;
-			camera.right = frustumWidth/2;
-		} else {
-			// Для десктопа - пересчитываем пропорционально
-			const currentHeight = camera.top - camera.bottom;
-			const newWidth = currentHeight * aspect;
+		// Пересчитываем фрустум с учетом нового соотношения сторон
+		if (currentWidth / currentHeight > aspect) {
+			// Экран стал уже - обрезаем по бокам
+			const newHeight = currentHeight;
+			const newWidth = newHeight * aspect;
+			camera.top = newHeight / 2;
+			camera.bottom = -newHeight / 2;
 			camera.left = -newWidth / 2;
 			camera.right = newWidth / 2;
+		} else {
+			// Экран стал шире - обрезаем сверху и снизу
+			const newWidth = currentWidth;
+			const newHeight = newWidth / aspect;
+			camera.left = -newWidth / 2;
+			camera.right = newWidth / 2;
+			camera.top = newHeight / 2;
+			camera.bottom = -newHeight / 2;
 		}
 		
 		camera.updateProjectionMatrix();
