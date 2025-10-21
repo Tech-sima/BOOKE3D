@@ -18,8 +18,8 @@
 		scene = new THREE.Scene();
 		scene.background = null; // Убираем серый фон
 
-		const aspect = container.clientWidth / container.clientHeight;
-		camera = new THREE.OrthographicCamera(-10*aspect, 10*aspect, 10, -10, 0.1, 1000);
+		// Фиксированная камера с постоянными параметрами
+		camera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 1000);
 		setFrontCamera(3.5);
 
 		renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -27,6 +27,11 @@
 		renderer.setSize(container.clientWidth, container.clientHeight);
 		renderer.shadowMap.enabled = true;
 		renderer.domElement.id = 'three-canvas';
+		renderer.domElement.style.position = 'absolute';
+		renderer.domElement.style.top = '0';
+		renderer.domElement.style.left = '0';
+		renderer.domElement.style.width = '100%';
+		renderer.domElement.style.height = '100%';
 		container.prepend(renderer.domElement);
 
 		scene.add(new THREE.AmbientLight(0xffffff, 0.9));
@@ -81,61 +86,18 @@
 	}
 
 	function fitFrustumToBounds(bounds){
-		const size = bounds.getSize(new THREE.Vector3());
-		const aspect = container.clientWidth / container.clientHeight;
+		// Фиксированные размеры фрустума - не подгоняем под экран
+		const FRUSTUM_SIZE = 20; // Фиксированный размер фрустума
 		
-		// Для вида сверху обрезаем края, чтобы заполнить весь экран
-		// Используем размеры модели по X и Z для определения нужного фрустума
-		const modelWidth = size.x;
-		const modelHeight = size.z; // для вида сверху используем Z как высоту
-		
-		// Определяем, какой размер больше - ширина или высота модели
-		const modelAspect = modelWidth / modelHeight;
-		
-		let frustumWidth, frustumHeight;
-		
-		if (modelAspect > aspect) {
-			// Модель шире экрана - обрезаем по бокам
-			frustumHeight = modelHeight / STATIC_ZOOM;
-			frustumWidth = frustumHeight * aspect;
-		} else {
-			// Модель выше экрана - обрезаем сверху и снизу
-			frustumWidth = modelWidth / STATIC_ZOOM;
-			frustumHeight = frustumWidth / aspect;
-		}
-		
-		camera.top = frustumHeight/2;
-		camera.bottom = -frustumHeight/2;
-		camera.left = -frustumWidth/2;
-		camera.right = frustumWidth/2;
+		camera.top = FRUSTUM_SIZE / 2;
+		camera.bottom = -FRUSTUM_SIZE / 2;
+		camera.left = -FRUSTUM_SIZE / 2;
+		camera.right = FRUSTUM_SIZE / 2;
 		camera.updateProjectionMatrix();
 	}
 
 	function onResize(){
-		const aspect = container.clientWidth / container.clientHeight;
-		const currentHeight = camera.top - camera.bottom;
-		const currentWidth = camera.right - camera.left;
-		
-		// Пересчитываем фрустум с учетом нового соотношения сторон
-		if (currentWidth / currentHeight > aspect) {
-			// Экран стал уже - обрезаем по бокам
-			const newHeight = currentHeight;
-			const newWidth = newHeight * aspect;
-			camera.top = newHeight / 2;
-			camera.bottom = -newHeight / 2;
-			camera.left = -newWidth / 2;
-			camera.right = newWidth / 2;
-		} else {
-			// Экран стал шире - обрезаем сверху и снизу
-			const newWidth = currentWidth;
-			const newHeight = newWidth / aspect;
-			camera.left = -newWidth / 2;
-			camera.right = newWidth / 2;
-			camera.top = newHeight / 2;
-			camera.bottom = -newHeight / 2;
-		}
-		
-		camera.updateProjectionMatrix();
+		// Обновляем только размеры рендерера, фрустум остается статичным
 		renderer.setSize(container.clientWidth, container.clientHeight);
 	}
 
